@@ -1,5 +1,5 @@
 import fetch from 'cross-fetch';
-import {promises, read} from 'fs';
+import {promises} from 'fs';
 import stripBom from 'strip-bom';
 
 type Release = {
@@ -41,12 +41,12 @@ export async function saveLatest(url: string, filename: string, overwrite = true
   return promises.writeFile(filename, raw);
 }
 
-type Ruby = {
+export type Ruby = {
   ruby: string; rt: string;
 };
-type Furigana = string|Ruby;
+export type Furigana = string|Ruby;
 type Word = Furigana[];
-type Entry = {
+export type Entry = {
   furigana: Furigana[],
   reading: string,
   text: string,
