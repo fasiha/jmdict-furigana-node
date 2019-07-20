@@ -90,6 +90,9 @@ function parse(raw) {
         const furigana = [];
         const last = (arr) => arr[arr.length - 1];
         for (const char of characters) {
+            if (!char) {
+                continue;
+            }
             if (typeof char === 'object' || typeof last(furigana) === 'object') {
                 furigana.push(char);
             }
@@ -118,7 +121,7 @@ function getEntries() {
         yield saveLatest(url, filename, false);
         const ldjson = filename + '.ldjson';
         let entries;
-        if (!fileOk(ldjson)) {
+        if (!(yield fileOk(ldjson))) {
             const raw = strip_bom_1.default(yield fs_1.promises.readFile(filename, 'utf8'));
             entries = parse(raw);
             yield fs_1.promises.writeFile(ldjson, entries.map(o => JSON.stringify(o)).join('\n'));

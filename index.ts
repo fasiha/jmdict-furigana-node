@@ -81,6 +81,7 @@ export function parse(raw: string) {
     const furigana: Word = [];
     const last = (arr: Word) => arr[arr.length - 1];
     for (const char of characters) {
+      if (!char) { continue; }
       if (typeof char === 'object' || typeof last(furigana) === 'object') {
         furigana.push(char);
       } else {
@@ -107,7 +108,7 @@ export async function getEntries() {
   await saveLatest(url, filename, false);
   const ldjson = filename + '.ldjson';
   let entries: Entry[];
-  if (!fileOk(ldjson)) {
+  if (!(await fileOk(ldjson))) {
     const raw = stripBom(await promises.readFile(filename, 'utf8'));
     entries = parse(raw);
     await promises.writeFile(ldjson, entries.map(o => JSON.stringify(o)).join('\n'));
