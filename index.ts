@@ -54,6 +54,7 @@ export type Entry = {
 
 // 頑張る|がんばる|0:がん;1:ば
 // 大人買い|おとながい|0-1:おとな;2:が
+// オリンピック選手|オリンピックせんしゅ|6:せん;7:しゅ
 export function parse(raw: string) {
   const lines = raw.split('\n');
   const ret: Entry[] = [];
@@ -82,7 +83,7 @@ export function parse(raw: string) {
     const last = (arr: Word) => arr[arr.length - 1];
     for (const char of characters) {
       if (!char) { continue; }
-      if (typeof char === 'object' || typeof last(furigana) === 'object') {
+      if (typeof char === 'object' || typeof last(furigana) !== 'string') { // last(furigana) might be undefined
         furigana.push(char);
       } else {
         // via de Morgan theorem, (char=string) && last(merged)=string here
