@@ -34,7 +34,7 @@ async function fileOk(filename: string) {
 }
 
 export async function saveLatest(url: string, filename: string, overwrite = true) {
-  if (!overwrite && fileOk(filename)) { return; }
+  if (!overwrite && await fileOk(filename)) { return; }
   const response = await fetch(url);
   if (!response.ok) { throw new Error('failed to download file ' + url); }
   const raw = await response.text();
