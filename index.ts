@@ -79,20 +79,25 @@ export function parse(raw: string) {
     }
 
     // merge `['s', 't', 'r', 'i', 'n', 'g', 's']` together into `['strings']`
-    const furigana: Word = [];
-    const last = (arr: Word) => arr[arr.length - 1];
-    for (const char of characters) {
-      if (!char) { continue; }
-      if (typeof char === 'object' || typeof last(furigana) !== 'string') { // last(furigana) might be undefined
-        furigana.push(char);
-      } else {
-        // via de Morgan theorem, (char=string) && last(merged)=string here
-        furigana[furigana.length - 1] += char;
-      }
-    }
+    const furigana = normalizeFurigana(characters);
     ret.push({text, reading, furigana});
   }
   return ret;
+}
+
+function normalizeFurigana(characters: Furigana[]): Furigana[] {
+  const furigana: Word = [];
+  const last = (arr: Word) => arr[arr.length - 1];
+  for (const char of characters) {
+    if (!char) { continue; }
+    if (typeof char === 'object' || typeof last(furigana) !== 'string') { // last(furigana) might be undefined
+      furigana.push(char);
+    } else {
+      // via de Morgan theorem, (char=string) && last(merged)=string here
+      furigana[furigana.length - 1] += char;
+    }
+  }
+  return furigana;
 }
 
 function setter<K, V>(map: Map<K, V[]>, key: K, value: V) {
@@ -130,6 +135,26 @@ export async function setup() {
     setter(readingToEntry, reading, entry);
   }
   return {textToEntry, readingToEntry};
+}
+
+export function furiganaToString(fs: Furigana[]) {
+  const safeRe = /[\{\}]/;
+  if (fs.some(f => safeRe.test(typeof f === 'string' ? f : f.ruby + f.rt))) {
+    throw new Error('Furigana contains {markup}');
+  }
+  return fs.map(f => typeof f === 'string' ? f : `{${f.ruby}}^{${f.rt}}`).join('');
+}
+
+export function stringToFurigana(s: string): Furigana[] {
+  const chars: Furigana[] = s.split('');
+  const re = /{(.+?)}\^{(.+?)}/g;
+  let match: RegExpMatchArray|null;
+  while (match = re.exec(s)) {
+    const index = match.index || 0; // TypeScript pacification
+    chars[index] = {ruby: match[1], rt: match[2]};
+    for (let i = index + 1; i < index + match[0].length; i++) { chars[i] = ''; }
+  }
+  return normalizeFurigana(chars);
 }
 
 if (module === require.main) {
