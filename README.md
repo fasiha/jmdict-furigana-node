@@ -47,14 +47,12 @@ Returns a promise that will resolve into an object containing two fields,
 
 each of which is an [ES2015 Map](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map), mapping a string (reading or kanji-like text, respectively) to an array of `Entry`s.
 
-This function requires `JmdictFurigana.json` to be available in your project's root directory. It also saves
-- `text.ldjson` and
-- `reading.ldjson`,
+This function requires `JmdictFurigana.json` to be available in your project's root directory.
 
-two LDJSON (line-delimited JSON) files that it uses to speed up creation of the above two maps.
+> (Saving the two maps above to disk as cache turns out to be slower than rebuilding them from scratch: 1.9 seconds versus 3.3 seconds!)
 
 ### `furiganaToString(fs: Furigana[]): string`
-Convert an array of `Furigana` objects to a string.
+Convert an array of `Furigana` objects to a pretty string like this: {大}^{だい}{好}^{す}き
 
 ### `stringToFurigana(s: string): Furigana[]`
-The previous function's inverse.
+The previous function's inverse: it converts a pretty string like `{大}^{だい}{好}^{す}き` to an array of Furigana.

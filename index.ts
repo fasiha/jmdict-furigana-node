@@ -6,10 +6,7 @@ import {promises} from 'fs';
 import stripBom from 'strip-bom';
 
 const RAW_JMDICT_FILENAME = 'JmdictFurigana.json';
-const READING_FILENAME = 'reading.ldjson';
-const TEXT_FILENAME = 'text.ldjson';
-
-// const JMNEDICT_FILENAME = 'JmnedictFurigana.json';
+// const RAW_JMNEDICT_FILENAME = 'JmnedictFurigana.json';
 
 async function fileOk(filename: string) {
   try {
@@ -51,13 +48,6 @@ function setter<K, V>(map: Map<K, V[]>, key: K, value: V) {
 }
 
 export async function setup(): Promise<{readingToEntry: Map<string, Entry[]>; textToEntry: Map<string, Entry[]>;}> {
-  if ((await fileOk(READING_FILENAME)) && (await fileOk(TEXT_FILENAME))) {
-    const fnameToMap = async (f: string) =>
-        new Map((await promises.readFile(f, 'utf8')).split('\n').map(s => JSON.parse(s) as [string, Entry[]]));
-    const readingToEntry = await fnameToMap(READING_FILENAME);
-    const textToEntry = await fnameToMap(TEXT_FILENAME);
-    return {readingToEntry, textToEntry};
-  }
   if (await fileOk(RAW_JMDICT_FILENAME)) {
     type RawEntry = {text: string, reading: string, furigana: {ruby: string, rt?: string}[]};
     const raw: RawEntry[] = JSON.parse(stripBom(await promises.readFile(RAW_JMDICT_FILENAME, 'utf8')));
@@ -70,11 +60,6 @@ export async function setup(): Promise<{readingToEntry: Map<string, Entry[]>; te
       setter(textToEntry, text, entry);
       setter(readingToEntry, reading, entry);
     }
-
-    const mapToLdjson = (m: typeof textToEntry) => Array.from(m, o => JSON.stringify(o)).join('\n');
-    promises.writeFile(READING_FILENAME, mapToLdjson(readingToEntry));
-    promises.writeFile(TEXT_FILENAME, mapToLdjson(textToEntry));
-
     return {readingToEntry, textToEntry};
   }
   console.error(DOWNLOAD_INSTRUCTIONS);
@@ -104,7 +89,14 @@ export function stringToFurigana(s: string): Furigana[] {
 if (module === require.main) {
   (async function main() {
     const {textToEntry, readingToEntry} = await setup();
-    console.log(textToEntry.get('漢字'));
-    console.log(readingToEntry.get('だいすき'))
+    {
+      const res = textToEntry.get('漢字');
+      console.dir(res, {depth: null});
+    }
+    {
+      const res = readingToEntry.get('だいすき');
+      console.dir(res, {depth: null});
+      console.log(furiganaToString(res?.[0]?.[2] || [] ));
+    }
   })();
 }
