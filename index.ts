@@ -1,29 +1,15 @@
-import fetch from 'cross-fetch';
+const DOWNLOAD_INSTRUCTIONS =
+    `Download and unzip JmdictFurigana.json.gz from https://github.com/Doublevil/JmdictFurigana.
+`;
+
 import {promises} from 'fs';
 import stripBom from 'strip-bom';
 
-type Release = {
-  assets: {name: string, browser_download_url: string}[],
-  tag_name: string
-};
-type FileRelease = {
-  url: string,
-  tag: string,
-  filename: string,
-};
-export async function getLatestURL(url = 'https://api.github.com/repos/Doublevil/JmdictFurigana/releases/latest',
-                                   filename = 'JmdictFurigana.txt'): Promise<FileRelease> {
-  const response = await fetch(url);
-  if (!response.ok) { throw new Error('failed to find latest'); }
-  const release: Release = await response.json();
-  if ('assets' in release) {
-    const asset = release.assets.filter(a => 'name' in a).find(a => a.name === filename);
-    if (!asset) { throw new Error('failed to find filename') }
-    return {url: asset.browser_download_url, tag: release.tag_name, filename: filename + '-' + release.tag_name};
-  } else {
-    throw new Error('failed to parse github response, `assets` needed');
-  }
-}
+const RAW_JMDICT_FILENAME = 'JmdictFurigana.json';
+const READING_FILENAME = 'reading.ldjson';
+const TEXT_FILENAME = 'text.ldjson';
+
+// const JMNEDICT_FILENAME = 'JmnedictFurigana.json';
 
 async function fileOk(filename: string) {
   try {
@@ -33,57 +19,12 @@ async function fileOk(filename: string) {
   return false;
 }
 
-export async function saveLatest(url: string, filename: string, overwrite = true) {
-  if (!overwrite && await fileOk(filename)) { return; }
-  const response = await fetch(url);
-  if (!response.ok) { throw new Error('failed to download file ' + url); }
-  const raw = await response.text();
-  return promises.writeFile(filename, raw);
-}
-
 export type Ruby = {
   ruby: string; rt: string;
 };
 export type Furigana = string|Ruby;
+export type Entry = [string, string, Furigana[]];
 type Word = Furigana[];
-export type Entry = {
-  furigana: Furigana[],
-  reading: string,
-  text: string,
-};
-
-// 頑張る|がんばる|0:がん;1:ば
-// 大人買い|おとながい|0-1:おとな;2:が
-// オリンピック選手|オリンピックせんしゅ|6:せん;7:しゅ
-export function parse(raw: string) {
-  const lines = raw.split('\n');
-  const ret: Entry[] = [];
-  for (const line of lines) {
-    if (!line) { continue; } // e.g., blank lines at end of file
-
-    const [text, reading, rawFurigana] = line.split('|');
-    if (!text || !reading || !rawFurigana) { throw new Error('failed to parse line ' + line); }
-
-    const characters: Word = text.split(''); // we'll replace these with Ruby objects and possibly empty strings
-
-    const rawFuriganas = rawFurigana.trim().split(';');
-    for (const f of rawFuriganas) {
-      const [range, rt] = f.split(':'); // rt here means the reading that goes on top
-      if (!range || !rt) { throw new Error('failed to split piece ' + f); }
-
-      const [left, maybeRight] = range.split('-');
-      const lo = parseInt(left);
-      const hi = parseInt(maybeRight || left);                   // `0:abc` is equivalent to `0-0:abc`
-      characters[lo] = {ruby: text.slice(lo, hi + 1), rt};       // overwrite first character with Ruby object
-      for (let i = lo + 1; i <= hi; i++) { characters[i] = ''; } // overwrite rest with empty strings
-    }
-
-    // merge `['s', 't', 'r', 'i', 'n', 'g', 's']` together into `['strings']`
-    const furigana = normalizeFurigana(characters);
-    ret.push({text, reading, furigana});
-  }
-  return ret;
-}
 
 function normalizeFurigana(characters: Furigana[]): Furigana[] {
   const furigana: Word = [];
@@ -109,35 +50,38 @@ function setter<K, V>(map: Map<K, V[]>, key: K, value: V) {
   }
 }
 
-export async function getEntries() {
-  const {url, filename} = await getLatestURL();
-  await saveLatest(url, filename, false);
-  const ldjson = filename + '.ldjson';
-  let entries: Entry[];
-  if (!(await fileOk(ldjson))) {
-    const raw = stripBom(await promises.readFile(filename, 'utf8'));
-    entries = parse(raw);
-    await promises.writeFile(ldjson, entries.map(o => JSON.stringify(o)).join('\n'));
-  } else {
-    const raw = await promises.readFile(ldjson, 'utf8');
-    entries = raw.split('\n').map(s => JSON.parse(s));
+export async function setup(): Promise<{readingToEntry: Map<string, Entry[]>; textToEntry: Map<string, Entry[]>;}> {
+  if ((await fileOk(READING_FILENAME)) && (await fileOk(TEXT_FILENAME))) {
+    const fnameToMap = async (f: string) =>
+        new Map((await promises.readFile(f, 'utf8')).split('\n').map(s => JSON.parse(s) as [string, Entry[]]));
+    const readingToEntry = await fnameToMap(READING_FILENAME);
+    const textToEntry = await fnameToMap(TEXT_FILENAME);
+    return {readingToEntry, textToEntry};
   }
-  return entries;
+  if (await fileOk(RAW_JMDICT_FILENAME)) {
+    type RawEntry = {text: string, reading: string, furigana: {ruby: string, rt?: string}[]};
+    const raw: RawEntry[] = JSON.parse(stripBom(await promises.readFile(RAW_JMDICT_FILENAME, 'utf8')));
+    const entries: Entry[] = raw.map(o => [o.text, o.reading, o.furigana.map(({ruby, rt}) => rt ? {ruby, rt} : ruby)]);
+
+    const textToEntry: Map<string, Entry[]> = new Map();
+    const readingToEntry: Map<string, Entry[]> = new Map();
+    for (const entry of entries) {
+      const [text, reading] = entry;
+      setter(textToEntry, text, entry);
+      setter(readingToEntry, reading, entry);
+    }
+
+    const mapToLdjson = (m: typeof textToEntry) => Array.from(m, o => JSON.stringify(o)).join('\n');
+    promises.writeFile(READING_FILENAME, mapToLdjson(readingToEntry));
+    promises.writeFile(TEXT_FILENAME, mapToLdjson(textToEntry));
+
+    return {readingToEntry, textToEntry};
+  }
+  console.error(DOWNLOAD_INSTRUCTIONS);
+  process.exit(1);
 }
 
-export async function setup() {
-  const entries = await getEntries();
-  const textToEntry: Map<string, Entry[]> = new Map();
-  const readingToEntry: Map<string, Entry[]> = new Map();
-  for (const entry of entries) {
-    const {reading, text} = entry;
-    setter(textToEntry, text, entry);
-    setter(readingToEntry, reading, entry);
-  }
-  return {textToEntry, readingToEntry};
-}
-
-export function furiganaToString(fs: Furigana[]) {
+export function furiganaToString(fs: Furigana[]): string {
   const safeRe = /[\{\}]/;
   if (fs.some(f => safeRe.test(typeof f === 'string' ? f : f.ruby + f.rt))) {
     throw new Error('Furigana contains {markup}');
@@ -160,6 +104,7 @@ export function stringToFurigana(s: string): Furigana[] {
 if (module === require.main) {
   (async function main() {
     const {textToEntry, readingToEntry} = await setup();
-    console.dir([textToEntry.get('漢字'), readingToEntry.get('だいすき')], {depth: null});
+    console.log(textToEntry.get('漢字'));
+    console.log(readingToEntry.get('だいすき'))
   })();
 }

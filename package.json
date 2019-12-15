@@ -11,10 +11,9 @@
   "license": "Unlicense",
   "devDependencies": {
     "@types/node": "^12.6.8",
-    "typescript": "^3.5.3"
+    "typescript": "^3.7.3"
   },
   "dependencies": {
-    "cross-fetch": "^3.0.4",
     "strip-bom": "^4.0.0"
   }
 }
