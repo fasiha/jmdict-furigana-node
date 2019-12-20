@@ -20,7 +20,11 @@ export type Ruby = {
   ruby: string; rt: string;
 };
 export type Furigana = string|Ruby;
-export type Entry = [string, string, Furigana[]];
+export type Entry = {
+  furigana: Furigana[],
+  reading: string,
+  text: string,
+};
 type Word = Furigana[];
 
 function normalizeFurigana(characters: Furigana[]): Furigana[] {
@@ -51,12 +55,12 @@ export async function setup(): Promise<{readingToEntry: Map<string, Entry[]>; te
   if (await fileOk(RAW_JMDICT_FILENAME)) {
     type RawEntry = {text: string, reading: string, furigana: {ruby: string, rt?: string}[]};
     const raw: RawEntry[] = JSON.parse(stripBom(await promises.readFile(RAW_JMDICT_FILENAME, 'utf8')));
-    const entries: Entry[] = raw.map(o => [o.text, o.reading, o.furigana.map(({ruby, rt}) => rt ? {ruby, rt} : ruby)]);
+    const entries: Entry[] = raw.map(o => ({...o, furigana: o.furigana.map(({ruby, rt}) => rt ? {ruby, rt} : ruby)}));
 
     const textToEntry: Map<string, Entry[]> = new Map();
     const readingToEntry: Map<string, Entry[]> = new Map();
     for (const entry of entries) {
-      const [text, reading] = entry;
+      const {text, reading} = entry;
       setter(textToEntry, text, entry);
       setter(readingToEntry, reading, entry);
     }
@@ -96,7 +100,7 @@ if (module === require.main) {
     {
       const res = readingToEntry.get('だいすき');
       console.dir(res, {depth: null});
-      console.log(furiganaToString(res?.[0]?.[2] || [] ));
+      console.log(furiganaToString(res?.[0].furigana || [] ));
     }
   })();
 }
