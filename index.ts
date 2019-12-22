@@ -51,10 +51,11 @@ function setter<K, V>(map: Map<K, V[]>, key: K, value: V) {
   }
 }
 
-export async function setup(): Promise<{readingToEntry: Map<string, Entry[]>; textToEntry: Map<string, Entry[]>;}> {
-  if (await fileOk(RAW_JMDICT_FILENAME)) {
+export async function setup(fname: string = RAW_JMDICT_FILENAME):
+    Promise<{readingToEntry: Map<string, Entry[]>; textToEntry: Map<string, Entry[]>;}> {
+  if (await fileOk(fname)) {
     type RawEntry = {text: string, reading: string, furigana: {ruby: string, rt?: string}[]};
-    const raw: RawEntry[] = JSON.parse(stripBom(await promises.readFile(RAW_JMDICT_FILENAME, 'utf8')));
+    const raw: RawEntry[] = JSON.parse(stripBom(await promises.readFile(fname, 'utf8')));
     const entries: Entry[] = raw.map(o => ({...o, furigana: o.furigana.map(({ruby, rt}) => rt ? {ruby, rt} : ruby)}));
 
     const textToEntry: Map<string, Entry[]> = new Map();
@@ -67,7 +68,7 @@ export async function setup(): Promise<{readingToEntry: Map<string, Entry[]>; te
     return {readingToEntry, textToEntry};
   }
   console.error(DOWNLOAD_INSTRUCTIONS);
-  process.exit(1);
+  throw new Error('see error');
 }
 
 export function furiganaToString(fs: Furigana[]): string {
