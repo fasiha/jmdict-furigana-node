@@ -51,8 +51,10 @@ function setter<K, V>(map: Map<K, V[]>, key: K, value: V) {
   }
 }
 
-export async function setup(fname: string = RAW_JMDICT_FILENAME):
-    Promise<{readingToEntry: Map<string, Entry[]>; textToEntry: Map<string, Entry[]>;}> {
+export type JmdictFurigana = {
+  readingToEntry: Map<string, Entry[]>; textToEntry: Map<string, Entry[]>;
+};
+export async function setup(fname: string = RAW_JMDICT_FILENAME): Promise<JmdictFurigana> {
   if (await fileOk(fname)) {
     type RawEntry = {text: string, reading: string, furigana: {ruby: string, rt?: string}[]};
     const raw: RawEntry[] = JSON.parse(stripBom(await promises.readFile(fname, 'utf8')));
